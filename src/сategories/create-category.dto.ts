@@ -10,5 +10,5 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsString()
   @Min(1)
-  description?: string;
+  description?: string | undefined;
 }
