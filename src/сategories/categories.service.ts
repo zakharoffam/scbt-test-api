@@ -5,22 +5,22 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import cyrillicToTranslit from 'cyrillic-to-translit-js';
-import { CreateCategoryDto } from './create-category.dto';
-import { CategoryModel } from './category.model';
+import { transliterate } from 'transliteration';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { CategoryModel } from './models/category.model';
 import { CategoryEntity } from '../storage/entities/category.entity';
-import { UpdateCategoryDto } from './update-category.dto';
-import { FilterCategoriesDto } from './filter-categories.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Injectable()
 export class CategoriesService {
   /**
    * Генерация уникального SLUG-имени
+   * @static
    * @param name
    * @private
    */
   private static generateSlug(name: string): string {
-    return cyrillicToTranslit().transform(name, '_');
+    return transliterate(name);
   }
 
   /**
@@ -32,7 +32,7 @@ export class CategoriesService {
     if (!entity) {
       throw new NotFoundException(`Категория с ID ${id} не найдена.`);
     }
-    return CategoryModel.getModel(entity);
+    return CategoryModel.create(entity);
   }
 
   /**
@@ -46,24 +46,7 @@ export class CategoriesService {
         `Категория с уникальным именем "${slug}" не найдена.`,
       );
     }
-    return CategoryModel.getModel(entity);
-  }
-
-  /**
-   * Найти категории по фильтру
-   */
-  public async findCategoriesByFilter(
-    filter?: FilterCategoriesDto,
-  ): Promise<CategoryModel[]> {
-    if (!filter) {
-      const find = await CategoryEntity.find({
-        take: 2,
-        order: { createdDate: 'DESC' },
-      });
-      return find.map((category) => CategoryModel.getModel(category));
-    } else {
-      return [];
-    }
+    return CategoryModel.create(entity);
   }
 
   /**
@@ -79,46 +62,58 @@ export class CategoriesService {
         `Категория с названием "${dto.name}" уже существует.`,
       );
     }
-    let categoryEntity = new CategoryEntity();
-    categoryEntity.slug = CategoriesService.generateSlug(dto.name);
-    categoryEntity.name = dto.name;
-    categoryEntity.description = dto.description;
-    categoryEntity.active = true;
+    let entity = new CategoryEntity();
+    entity.slug = CategoriesService.generateSlug(dto.name);
+    entity.name = dto.name;
+    entity.description = dto.description || '';
+    entity.active = true;
+    entity.searchName = dto.name.toLocaleLowerCase().replace('ё', 'е');
+    entity.searchDescription = dto.description
+      ? dto.description.toLocaleLowerCase().replace(/ё/g, 'е')
+      : '';
+    entity.searchNameAndDescription =
+      entity.searchName + ' ' + entity.searchDescription;
     try {
-      categoryEntity = await CategoryEntity.save(categoryEntity);
+      entity = await CategoryEntity.save(entity);
     } catch (err) {
       Logger.error(err, `CategoriesService.addCategory()`);
       throw new InternalServerErrorException(`Внутренняя ошибка сервера.`);
     }
-    return CategoryModel.getModel(categoryEntity);
+    return CategoryModel.create(entity);
   }
 
   /**
    * Обновить данные категории
-   * @param data
+   * @param dto
    */
-  public async updateCategory(data: UpdateCategoryDto): Promise<CategoryModel> {
-    let entity = await CategoryEntity.findOne({ where: { id: data.id } });
+  public async updateCategory(dto: UpdateCategoryDto): Promise<CategoryModel> {
+    let entity = await CategoryEntity.findOne({ where: { id: dto.id } });
     if (!entity) {
-      throw new BadRequestException(`Категории с ID ${data.id} не существует.`);
+      throw new BadRequestException(`Категории с ID ${dto.id} не существует.`);
     }
-    if (data.name) {
+    if (dto.name) {
       const isExistWithNewName = await CategoryEntity.findOne({
-        where: { name: data.name },
+        where: { name: dto.name },
       });
       if (isExistWithNewName) {
         throw new BadRequestException(
-          `Категория с названием "${data.name}" уже существует.`,
+          `Категория с названием "${dto.name}" уже существует.`,
         );
       }
-      entity.name = data.name;
-      entity.slug = CategoriesService.generateSlug(data.name);
+      entity.name = dto.name;
+      entity.slug = CategoriesService.generateSlug(dto.name);
+      entity.searchName = dto.name.toLocaleLowerCase().replace('ё', 'е');
     }
-    if (data.description) {
-      entity.description = data.description;
+    if (dto.description) {
+      entity.description = dto.description;
+      entity.searchDescription = dto.description
+        ? dto.description.toLocaleLowerCase().replace(/ё/g, 'е')
+        : '';
     }
-    if (data.active !== undefined) {
-      entity.active = data.active;
+    entity.searchNameAndDescription =
+      entity.searchName + ' ' + entity.searchDescription;
+    if (dto.active !== undefined) {
+      entity.active = dto.active;
     }
     try {
       entity = await CategoryEntity.save(entity);
@@ -126,7 +121,7 @@ export class CategoriesService {
       Logger.error(err, `CategoriesService.updateCategory()`);
       throw new InternalServerErrorException(`Внутренняя ошибка сервера.`);
     }
-    return CategoryModel.getModel(entity);
+    return CategoryModel.create(entity);
   }
 
   /**

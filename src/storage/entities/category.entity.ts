@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
@@ -20,9 +21,21 @@ export class CategoryEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: false, unique: true })
   name: string; // Название категории
 
-  @Column({ type: 'varchar', nullable: true })
-  description: string | null; // Описание категории
+  @Column({ type: 'varchar', nullable: false })
+  description: string; // Описание категории
 
   @Column({ type: 'boolean', nullable: false, default: true })
   active: boolean; // Включена/отключена?
+
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 255, nullable: false, unique: true })
+  searchName: string; // Индекс для поиска по названию
+
+  @Index()
+  @Column({ type: 'varchar', nullable: false })
+  searchDescription: string; // Индекс для поиска по описанию
+
+  @Index()
+  @Column({ type: 'varchar', nullable: false, unique: true })
+  searchNameAndDescription: string; // Индекс для поиска по описанию
 }

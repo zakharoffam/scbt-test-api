@@ -1,4 +1,10 @@
-import { IsBoolean, IsOptional, IsString, Length, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  Length,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateCategoryDto {
   @IsString()
@@ -14,7 +20,7 @@ export class UpdateCategoryDto {
 
   @IsOptional()
   @IsString()
-  @Min(1, { message: 'Описание должно состоять минимум из 10 символов.' })
+  @MinLength(1, { message: 'Описание должно состоять минимум из 10 символов.' })
   description?: string | undefined;
 
   @IsOptional()

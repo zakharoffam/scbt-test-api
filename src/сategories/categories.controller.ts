@@ -11,17 +11,35 @@ import {
   Query,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
-import { CreateCategoryDto } from './create-category.dto';
-import { CategoryModel } from './category.model';
-import { UpdateCategoryDto } from './update-category.dto';
-import { FilterCategoriesDto } from './filter-categories.dto';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { CategoryModel } from './models/category.model';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { FilterCategoriesDto } from './dto/filter-categories.dto';
+import { FilterForCategoriesService } from './filter-for-categories.service';
+import { SearchResultModel } from './models/search-result.model';
 
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+  constructor(
+    private readonly categoriesService: CategoriesService,
+    private readonly filterForCategories: FilterForCategoriesService,
+  ) {}
 
   /**
-   * Получить категорию
+   * Получить список категорий фильтру
+   * @url GET /api/categories/filter
+   * @private
+   */
+  @Get('filter')
+  private async findCategories(
+    @Query() query: FilterCategoriesDto,
+  ): Promise<SearchResultModel> {
+    return await this.filterForCategories.findCategoriesByFilter(query);
+  }
+
+  /**
+   * Получить категорию по ID или SLUG
+   * @url GET /api/categories
    * @param id
    * @param slug
    * @private
@@ -40,18 +58,6 @@ export class CategoriesController {
         'Не передано ни одного параметра для поиска категории.',
       );
     }
-  }
-
-  /**
-   * Получить список категорий фильтру
-   * @url POST /api/categories/search
-   * @private
-   */
-  @Post('search')
-  private async findCategories(
-    @Body() body?: FilterCategoriesDto,
-  ): Promise<CategoryModel[]> {
-    return await this.categoriesService.findCategoriesByFilter(body);
   }
 
   /**
